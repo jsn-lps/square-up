@@ -5,6 +5,12 @@ const { Client, GatewayIntentBits, Message, EmbedBuilder, AttachmentBuilder } = 
 const { token } = require('./config.json');
 const sqlite3 = require('sqlite3').verbose();
 
+
+
+// function imports
+// const dbcall = require('./functions/dbCalls.js');
+
+
 // intents
 const client = new Client({intents: [""]});
 
@@ -25,43 +31,107 @@ let db = new sqlite3.Database('./data/SquareUp.sqlite', (err) => {
 // for tracking users who have used the bot to reduce the amount of DB queries. will run on startup once.
 let userIDs = [];
 
-db.all(`SELECT id FROM users`,(err, rows) => {
-	if (err) {
-	  throw err;
+
+const createTableIfNotExist = async(table) => {
+	try {
+		console.log("checking/creating tables...")
+		db.run(`CREATE TABLE IF NOT EXISTS ${table} (id INTEGER, name TEXT)`);
+		return true;
+	} catch {
+		console.log("failed to create DB")
+		return false
 	}
-	rows.map((row) => {
-	userIDs.push(row.id)
-	});
-  });;
+}
+
+const addUsersToWorkingArray = async(eventArray) => {
+    
+    console.log('starting to add users')
+    
+    try {
+		db.all(`SELECT id FROM users`,(err, rows) => {
+			if (err) {
+				throw err;
+			}
+			rows.map((row) => {
+				eventArray.push(parseInt(row.id));
+				console.log("added " + row.id + " to working users");
+				}
+			)
+
+			// if all users were added, return true
+			if (eventArray.length == rows.length) {
+				return true
+			} else {
+				return false
+			}
+			
+		})
+
+	} catch {
+	    console.log("borked in adding users to array");
+		return false
+}
+
+
+};
 
 
 // run once on startup
-client.once('ready', () => {
-	console.log(`${client.user.username} is ready!`);
+client.once('ready', async () => {
+	
+	console.log(`${client.user.username} is starting up!`);
 
-	// if tables don't exist then create them
-	db.run(`CREATE TABLE IF NOT EXISTS users(id INTEGER, name TEXT)`)
+	try {
+		// if tables don't exist then create them
+		console.log("Creating/Checking DB tables")
+		
+		if (await createTableIfNotExist("users")){
+		console.log("DB Tables exist!");
 
+		} else {
+			console.log("BRUH")
+		}
+
+
+		// populate array with users table from DB
+		console.log("populating working array with DB users");
+
+		// this returns before the execution of the DB calls
+		const workingArrayIsFilled = await addUsersToWorkingArray(userIDs);
+		
+		if (workingArrayIsFilled === true){
+			console.log("array has been populated! " + userIDs);
+
+		} else {
+			console.log("working array isnt filling fast enough")
+		}
+
+		// all success!
+		console.log("done setting up!");
+	} catch(e){
+		console.log("borked in setup somewhere... :(")
+	}
 });
 
 
 
 // bot commands 
 // "interaction" is the obj that stores the user's information
-    // use interaction.user.id for DB ids. 
+// use interaction.user.id for DB ids. 
 
 client.on('interactionCreate', async interaction => {
-    // skip if not a chat command
+	// skip if not a chat command
+	console.log(userIDs)
 	if (!interaction.isChatInputCommand()) return;
     
 	const { commandName } = interaction;
 
 	// if user doesn't exist, add it for tracking
-	if (!userIDs.includes(interaction.user.id)) {
+	if (!userIDs.includes(parseInt(interaction.user.id))) {
 		db.run(`INSERT INTO users (id,name)
-		VALUES (${interaction.user.id}, "${interaction.user.username}");`);
-		userIDs.push(interaction.user.id); // add to our list
-		console.log(`Added the new user ${interaction.user.id} to userIDs`)
+		VALUES (${parseInt(interaction.user.id)}, "${interaction.user.username}");`);
+		userIDs.push(parseInt(interaction.user.id)); // add to our list
+		console.log(`Added the new user ${interaction.user.username} to userIDs`)
 	} 
 
 	// commands
