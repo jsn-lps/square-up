@@ -70,7 +70,7 @@ client.on('interactionCreate', async interaction => {
 
 	} else if (commandName === 'mommy') {
 
-		const file = new AttachmentBuilder('add link here');
+		const file = new AttachmentBuilder('https://i.imgur.com/rBO8BVH.jpg');
 
 		await interaction.reply({files: [file] });
 	}
