@@ -3,114 +3,124 @@ require('dotenv').config();
 // imports
 const { Client, GatewayIntentBits, Message, EmbedBuilder, AttachmentBuilder } = require('discord.js');
 const { token } = require('./config.json');
-const sqlite3 = require('sqlite3').verbose();
+// const sqlite3 = require('sqlite3').verbose(); // sqlite3 doesn't support async/await
+const sqlite = require('aa-sqlite');
 
+
+// change to DBconn(wrap try/catch) later
+const openDB = async() => {
+	try {
+		await sqlite.open("./data/SquareUp.sqlite");
+		console.log("-- Opened DB connection --")
+	} catch (error) {
+		console.error("Couldn't open DB connection");
+		sqlite.close();
+	}
+}
+
+
+
+const createTablesIfNotExist = async(table) => {
+
+	await openDB();
+
+	try {
+		console.log("checking/creating tables")
+		await sqlite.run(`CREATE TABLE IF NOT EXISTS ${table} (id INTEGER, name TEXT)`);
+		console.log("Tables exist!")
+		return true
+	} catch (error) {
+		console.log("error at table check/creation")
+		console.error(error);
+		sqlite.close();
+	}
+	
+	sqlite.close();
+};
+
+
+const addUsersToWorkingArray = async(eventArray) => {
+
+	await openDB();
+	
+    try {
+		console.log("adding users to working array");
+		
+		await sqlite.each(`SELECT id FROM users`, [], (user) => {
+			eventArray.push(user.id)
+		}); 
+		
+		
+	} catch {
+		console.log("vvv borked in adding users to array vvv");
+		return false
+	}
+
+	sqlite.close();
+
+} 
+
+
+const addUserToDB = async(userid, username) => {
+
+	await openDB();
+
+		try {
+			await sqlite.run(`INSERT INTO users (id,name)
+			VALUES (${parseInt(userid)}, "${username}");`);
+			userIDs.push(parseInt(userid));
+
+		} catch (error) {
+			console.log(`Couldn't add user ${username} to DB`);
+		}
+	
+	sqlite.close();
+
+}
 
 
 // function imports
-// const dbcall = require('./functions/dbCalls.js');
+// do the thing here
 
 
 // intents
 const client = new Client({intents: [""]});
 
-// intents and what they're for 
-// n/a 
 
 // bot login with token
 client.login(token)
 
-// working variables || db.run to execute SQL statements
-let db = new sqlite3.Database('./data/SquareUp.sqlite', (err) => {
-	if (err) {
-	  console.error(err.message);
-	}
-	console.log('Connected to the SquareUp database.');
-  });
 
 // for tracking users who have used the bot to reduce the amount of DB queries. will run on startup once.
+// probably not a good idea but oh well. we'll see how it goes when I add 300 dummy users
 let userIDs = [];
 
-
-const createTableIfNotExist = async(table) => {
-	try {
-		console.log("checking/creating tables...")
-		db.run(`CREATE TABLE IF NOT EXISTS ${table} (id INTEGER, name TEXT)`);
-		return true;
-	} catch {
-		console.log("failed to create DB")
-		return false
-	}
-}
-
-const addUsersToWorkingArray = async(eventArray) => {
-    
-    console.log('starting to add users')
-    
-    try {
-		db.all(`SELECT id FROM users`,(err, rows) => {
-			if (err) {
-				throw err;
-			}
-			rows.map((row) => {
-				eventArray.push(parseInt(row.id));
-				console.log("added " + row.id + " to working users");
-				}
-			)
-
-			// if all users were added, return true
-			if (eventArray.length == rows.length) {
-				return true
-			} else {
-				return false
-			}
-			
-		})
-
-	} catch {
-	    console.log("borked in adding users to array");
-		return false
-}
-
-
-};
 
 
 // run once on startup
 client.once('ready', async () => {
 	
-	console.log(`${client.user.username} is starting up!`);
+	console.log(`--- ${client.user.username} is starting up! ---`);
 
 	try {
 		// if tables don't exist then create them
 		console.log("Creating/Checking DB tables")
-		
-		if (await createTableIfNotExist("users")){
-		console.log("DB Tables exist!");
-
-		} else {
-			console.log("BRUH")
-		}
+		await createTablesIfNotExist(`users`);
 
 
 		// populate array with users table from DB
-		console.log("populating working array with DB users");
-
-		// this returns before the execution of the DB calls
-		const workingArrayIsFilled = await addUsersToWorkingArray(userIDs);
+		console.log("-- Populating working array with DB users --");
+		await addUsersToWorkingArray(userIDs);
+		console.log("array has been populated!");
 		
-		if (workingArrayIsFilled === true){
-			console.log("array has been populated! " + userIDs);
-
-		} else {
-			console.log("working array isnt filling fast enough")
-		}
 
 		// all success!
-		console.log("done setting up!");
+		console.log(`----- ${client.user.username} is ready! -----`);
 	} catch(e){
 		console.log("borked in setup somewhere... :(")
 	}
+
+
 });
 
 
@@ -121,20 +131,19 @@ client.once('ready', async () => {
 
 client.on('interactionCreate', async interaction => {
 	// skip if not a chat command
-	console.log(userIDs)
+
 	if (!interaction.isChatInputCommand()) return;
     
 	const { commandName } = interaction;
 
 	// if user doesn't exist, add it for tracking
 	if (!userIDs.includes(parseInt(interaction.user.id))) {
-		db.run(`INSERT INTO users (id,name)
-		VALUES (${parseInt(interaction.user.id)}, "${interaction.user.username}");`);
-		userIDs.push(parseInt(interaction.user.id)); // add to our list
-		console.log(`Added the new user ${interaction.user.username} to userIDs`)
+		await addUserToDB(interaction.user.id, interaction.user.username);
+		console.log(`Added the new user ${interaction.user.username} to userIDs`);
 	} 
 
 	// commands
+	// is there a better way to add many IDs and match them?
 	if (commandName === 'suh') {
 		await interaction.reply(`Suh ${interaction.user.username}`);
 

@@ -4,7 +4,7 @@ const { clientId, guildId, token } = require('./config.json')
 
 
 
-// add /command here then configure the command in index.js line 30 onwards.
+// add /command here then configure the command in index.js.
 const commands = [
     new SlashCommandBuilder().setName('suh').setDescription('suhdude'),
 	new SlashCommandBuilder().setName('mommy').setDescription('??????????????'),
