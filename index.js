@@ -7,6 +7,7 @@ const { token } = require('./config.json');
 const sqlite = require('aa-sqlite');
 
 
+// import these commands later
 // change to DBconn(wrap try/catch) later
 const openDB = async() => {
 	try {
@@ -79,6 +80,78 @@ const addUserToDB = async(userid, username) => {
 }
 
 
+
+const generateMatchID = () => {
+	let id = Math.floor(Math.random() * Date.now());
+	return id
+}
+
+
+
+
+
+const checkIfInMatch = (player) => {
+	// returns true if in match 
+	let inMatch = false;
+
+	console.log("checking if in match")
+	
+	if (activeMatches.length == 0) {
+		return inMatch 
+	}  else {
+		
+		console.log(`checking if ${player.user.id} is in match`)
+
+		for (let i = 0; i < activeMatches.length; i++) {
+
+			if (player.user.id == activeMatches[i]['p1']['id']  || player.user.id == activeMatches[i]['p2']['id'] ) {
+					console.log(`${player.user.username} already in game!!`)
+					inMatch = true;
+					break;
+					}
+			}
+		}
+	return inMatch	
+}
+
+
+
+const generateMatchSession = async(challenger, opponent, game) => {
+
+	console.log("generating match session");
+
+	let id = generateMatchID();
+	console.log("generated ID");
+
+
+	if (checkIfInMatch(challenger) || checkIfInMatch(opponent)) {
+		console.log("checkifinmatch returned true")
+
+		return false
+
+	} else {
+		console.log("MAKING MATCH SESSION")
+		try {
+			activeMatches.push({ 
+			'matchID': id, 'game': game,
+			'p1': {'name': challenger.user.username, 'id': challenger.user.id},
+			'p2': {'name': opponent.user.username, 'id': opponent.user.id},
+			'active': false, 'accepted': false, 'result': null });
+
+		} catch (error) {
+			console.log("Could not make match!!")
+		}
+
+		return true;
+
+	}
+}
+
+
+
+// import these commands later
+
+
 // function imports
 // do the thing here
 
@@ -94,12 +167,12 @@ client.login(token)
 // for tracking users who have used the bot to reduce the amount of DB queries. will run on startup once.
 // probably not a good idea but oh well. we'll see how it goes when I add 300 dummy users
 let userIDs = [];
-
+let activeMatches = []; // format: OBJ, { matchID: get.Date(), P1: requester.id, P2: opponed.id, result: null }
 
 
 // run once on startup
 client.once('ready', async () => {
-	
+
 	console.log(`--- ${client.user.username} is starting up! ---`);
 
 	try {
@@ -128,32 +201,78 @@ client.once('ready', async () => {
 // bot commands 
 // "interaction" is the obj that stores the user's information
 // use interaction.user.id for DB ids. 
+// ephemeral: true (only show the user who ran the command)
+
 
 client.on('interactionCreate', async interaction => {
+	
 	// skip if not a chat command
-
 	if (!interaction.isChatInputCommand()) return;
     
-	const { commandName } = interaction;
-
+	
 	// if user doesn't exist, add it for tracking
 	if (!userIDs.includes(parseInt(interaction.user.id))) {
 		await addUserToDB(interaction.user.id, interaction.user.username);
 		console.log(`Added the new user ${interaction.user.username} to userIDs`);
 	} 
-
+	
+	const { commandName } = interaction;
+	const user = interaction.user.username;
+	const id = interaction.user.id;
 	// commands
 	// is there a better way to add many IDs and match them?
 	if (commandName === 'suh') {
-		await interaction.reply(`Suh ${interaction.user.username}`);
+		interaction.reply(`Suh ${user}`);
 
 	} else if (commandName === 'mommy') {
 
 		const file = new AttachmentBuilder('https://i.imgur.com/rBO8BVH.jpg');
 
-		await interaction.reply({files: [file] });
-	}
+		interaction.reply({content: `Open up, ${user} ;)`, files: [file] , ephemeral: true});
 
+	} else if (commandName === 'box') {
+
+
+		const challenger = interaction; // person starting the match
+		const opponent = interaction.options.getMentionable('opponent'); // person being challenged
+		const game = interaction.options.getString('games'); // game
+
+
+		console.log(`${challenger.user.username} has challenged ${opponent.user.username} to a match on ${game}`);
+
+		
+		// create challenge
+
+		// COMPLETED check if either player is currently in a match via activematches
+			// check if issuer is in an active match;
+			// check if opponent is in active match 
+		
+		// COMPLETED create match object and push to activeMatches;
+			// activeMatches.push({ 'matchID': generateMatchID(), 'game': game, 'p1': challenger.user.id, 'p2': opponent.user.id })
+
+		// send invitation to opponent and request confirmation
+			// use embed with reaction button or on screen button
+			// create another command to set flag on match to active
+
+
+		// once match is active, create embed to report match results.
+			// match results are pushed to database and cleared from activeMatches
+
+
+		let didMakeMatch = await generateMatchSession(challenger, opponent, game);			
+
+		if (didMakeMatch) {
+			interaction.reply({
+				content: `Sent your challenge request to ${opponent.user.username} ;)`,
+				ephemeral: true});
+		} else {
+			interaction.reply({
+				content: `Match with ${opponent.user.username} was not created :(`,
+				ephemeral: true});
+		}
+
+
+		}
 });
 
 
