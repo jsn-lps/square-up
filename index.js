@@ -226,7 +226,7 @@ client.on('interactionCreate', async interaction => {
 
 	} else if (commandName === 'mommy') {
 
-		const file = new AttachmentBuilder('https://i.imgur.com/rBO8BVH.jpg');
+		const file = new AttachmentBuilder('https://hips.hearstapps.com/hmg-prod.s3.amazonaws.com/images/13-penguin-call-1524251368.jpg?crop=0.667xw:1.00xh;0.166xw,0&resize=480:*');
 
 		interaction.reply({content: `Open up, ${user} ;)`, files: [file] , ephemeral: true});
 
