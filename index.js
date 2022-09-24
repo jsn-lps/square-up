@@ -21,13 +21,13 @@ const openDB = async() => {
 	}
 }
 
-const createTablesIfNotExist = async(table) => {
+const createTablesIfNotExist = async(table, columns) => {
 
 	await openDB();
 
 	try {		
-		// console.log("checking/creating tables")
-		await sqlite.run(`CREATE TABLE IF NOT EXISTS ${table} (id INTEGER, name TEXT)`);
+		console.log(`checking/creating table ${table}`)
+		await sqlite.run(`CREATE TABLE IF NOT EXISTS ${table} ${columns}`);
 		// console.log("Tables exist!")
 		return true
 	} catch (error) {
@@ -46,7 +46,7 @@ const addUsersToWorkingArray = async(eventArray) => {
     try {
 		// console.log("adding users to working array");
 		
-		await sqlite.each(`SELECT id FROM users`, [], (user) => {
+		await sqlite.each(`SELECT PK_id FROM users`, [], (user) => {
 			eventArray.push(user.id)
 		}); 
 		
@@ -65,7 +65,7 @@ const addUserToDB = async(userid, username) => {
 	await openDB();
 
 		try {
-			await sqlite.run(`INSERT INTO users (id,name)
+			await sqlite.run(`INSERT INTO users (PK_id,name)
 			VALUES (${parseInt(userid)}, "${username}");`);
 			userIDs.push(parseInt(userid));
 
@@ -161,9 +161,9 @@ client.once('ready', async () => {
 	try {
 		// if tables don't exist then create them
 		// console.log("Creating/Checking DB tables")
-		await createTablesIfNotExist("users");
+		await createTablesIfNotExist("users", "(PK_id INTEGER, name TEXT)");
 
-		await createTablesIfNotExist("matchHistory");
+		await createTablesIfNotExist("ultimate", "(match_id INTEGER, date INTEGER, player_1 INTEGER, player_2 INTEGER, result INTEGER, both_reported INTEGER, notes TEXT)");
 
 
 		// populate array with users table from DB
@@ -241,6 +241,7 @@ client.on('interactionCreate', async interaction => {
 
 		// once match is active, create embed to report match results.
 			// match results are pushed to database and cleared from activeMatches
+			// for date entry use const d = new Date();   date = d.getFullYear() + "-" + (d.getMonth()+1) + "-" + d.getDate() + "-" + d.getHours() +":" + d.getMinutes()
 
 
 		let matchID = await generateMatchSession(challenger, opponent, game);			
