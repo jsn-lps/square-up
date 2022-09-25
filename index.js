@@ -22,8 +22,7 @@ const client = new Client({intents: [""]});
 // bot login with token
 client.login(token)
 
-// for tracking users who have used the bot to reduce the amount of DB queries. will run on startup once.
-// probably not a good idea but oh well. we'll see how it goes when I add 300 dummy users
+
 let userIDs = [];
 let activeMatches = [];
 
@@ -107,7 +106,7 @@ client.on('interactionCreate', async interaction => {
 			let embedID = interaction.id;
 			// each button will contain this data in it's customId
 			// used to compare buttons to sessions
-			let btnData = `${challenger.user.id} ${opponent.user.id} ${matchID} ${embedID}`;
+			let btnData = `${challenger.user.id} ${opponent.user.id} ${matchID} ${embedID} ${game}`;
 
 			// sent to challenger
 			const challengerEmbed = new EmbedBuilder()
@@ -166,6 +165,7 @@ client.on('interactionCreate', async interaction => {
 				embeds: [opponentEmbed],
 				components: [acceptDenyButtons],
 			});
+			
 
 
 		} else {
@@ -186,10 +186,11 @@ client.on('interactionCreate', async btnPress => {
 	console.log(btnPress.customId);
 
 	let btnType = btnPress.customId.split(" ")[0];
-	let btnChallenger = btnPress.customId.split(" ")[1];
-	let btnOpponent = btnPress.customId.split(" ")[2];
+	let challengerId = btnPress.customId.split(" ")[1];
+	let opponentId = btnPress.customId.split(" ")[2];
 	let btnMatchID = btnPress.customId.split(" ")[3];
 	let embedID = btnPress.customId.split(" ")[4];
+	let game = btnPress.customId.split(" ")[5];
 
 
 	// if button is matchAccept. change to function
@@ -203,6 +204,7 @@ client.on('interactionCreate', async btnPress => {
 			if (activeMatches[i]['matchID'] == btnMatchID && activeMatches[0]['accepted'] == false) {
 				validButton = true;
 				activeMatches[0]['accepted'] = true;
+				activeMatches[0]['active'] = true;
 				
 				// console.log(btnPress.component)
 
@@ -213,18 +215,50 @@ client.on('interactionCreate', async btnPress => {
 		}
 
 		if (validButton == true) {
-
 			console.log("button was indeed validitionined")
-
 			// create match ID. 
 			// push to matchHistory in DB with result null
 
+			
+			// active matches category 1023643386902741083
+			console.log(activeMatches);
+
+			const pushMatchToDB = async() => {
+				
+			try {
+				await openDB();
+				console.log(`-- Pushing Match ${challengerId} vs ${opponentId} to Database --`);
+
+				// setup vars 
+				// db formate
+				// (match_id INTEGER, date INTEGER, player_1 INTEGER, player_2 INTEGER, result INTEGER, both_reported INTEGER, notes TEXT)
+
+
+				await sqlite.run(`INSERT INTO ${game} activematchobjecthere`)
+
+
+			} catch (error) {
+				
+			}
+
+			await closeDB()
+			}
+
+
+
+
+			
 		} else {
+			
+			// await client.users.fetch(opponentId)
+
+
 			console.log("DED BUTTON")
 			
 			await btnPress.reply({
 				content: "Not a valid button! Try asking them to send a new match"
 			})
+			
 		}
 	}
 });
