@@ -11,7 +11,9 @@ const { createTablesIfNotExist } = require('./lib/createTablesIfNotExist');
 const { addUsersToWorkingArray } = require('./lib/addUsersToWorkingArray');
 const { addUserToDB } = require('./lib/addUserToDB');
 const { generateMatchSession } = require('./lib/generateMatchSession')
+const { pushMatchToDB } = require('./lib/pushMatchToDB')
 
+const { getDate } = require('./lib/getDate')
 const { openDB, closeDB } = require('./lib/DB');
 const { generateMatchID } = require('./lib/generateMatchID');
 const { checkIfInMatch } = require('./lib/checkIfInMatch');
@@ -35,18 +37,17 @@ client.once('ready', async () => {
 		// if tables don't exist then create them
 		console.log("Creating/Checking DB tables")
 
-		// users table
-		await createTablesIfNotExist("users", "(PK_id INTEGER, name TEXT)");
-		//smash ultimate data
-		await createTablesIfNotExist("ultimate", "(match_id INTEGER, date INTEGER, player_1 INTEGER, player_2 INTEGER, result INTEGER, both_reported INTEGER, notes TEXT)");
+		// columns must be added as "NAME TYPE". this input is strict.
+		// any new columns added here will be added to the table
 
+		// users table
+		await createTablesIfNotExist("users", "PK_id INTEGER,name TEXT");
+		//smash ultimate data
+		await createTablesIfNotExist("ultimate", "match_id INTEGER,date TEXT,result INTEGER,player_1 INTEGER,player_1_reported INTEGER,player_2 INTEGER,player_2_reported INTEGER,both_reported INTEGER,active INTEGER,notes TEXT");
 
 		// populate array with users table from DB
-		// console.log("-- Populating working array with DB users --");
 		await addUsersToWorkingArray(userIDs);
-		// console.log("array has been populated!");
 		
-
 		// all success!
 		console.log(`----- ${client.user.username} is ready! -----`);
 	} catch(e){
@@ -58,36 +59,36 @@ client.once('ready', async () => {
 
 // slash command listener
 // ephemeral: true (only show the user who ran the command)
-client.on('interactionCreate', async interaction => {
+client.on('interactionCreate', async chatCommand => {
 	// skip if not a chat command
-	if (!interaction.isChatInputCommand()) return;
+	if (!chatCommand.isChatInputCommand()) return;
     
-	const { commandName } = interaction;
-	const user = interaction.user.username;
-	const id = interaction.user.id;
+	const { commandName } = chatCommand;
+	const user = chatCommand.user.username;
+	const id = chatCommand.user.id;
 
 	// if user doesn't exist in database, add it for tracking
-	if (!userIDs.includes(parseInt(interaction.user.id))) {
+	if (!userIDs.includes(parseInt(chatCommand.user.id))) {
 		await addUserToDB(id, user, userIDs);
 	}
 	
 	// slash commands
 	if (commandName === 'suh') {
-		interaction.reply(`Suh ${user}`);
+		chatCommand.reply(`Suh ${user}`);
 
 	} else if (commandName === 'mommy') {
 		const file = new AttachmentBuilder('https://hips.hearstapps.com/hmg-prod.s3.amazonaws.com/images/13-penguin-call-1524251368.jpg?crop=0.667xw:1.00xh;0.166xw,0&resize=480:*');
-		interaction.reply({content: `Open up, ${user} ;)`, files: [file] , ephemeral: true});
+		chatCommand.reply({content: `Open up, ${user} ;)`, files: [file] , ephemeral: true});
 
 		// match start command ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	} else if (commandName === 'box') {
 
-		const challenger = interaction; // person starting the match
-		const opponent = interaction.options.getMentionable('opponent'); // person being challenged
-		const game = interaction.options.getString('games'); 
+		const challenger = chatCommand; // person starting the match
+		const opponent = chatCommand.options.getMentionable('opponent'); // person being challenged
+		const game = chatCommand.options.getString('games'); 
 
 		const gamelist = {'ultimate': "Smash Ultimate", 'dbfz': "Dragon Ball FighterZ"}
-		console.log(interaction.id + "in command use")
+		
 		
 		// create challenge
 			// send invitation to opponent and request confirmation
@@ -103,7 +104,7 @@ client.on('interactionCreate', async interaction => {
 
 		if (matchID !== "") {
 
-			let embedID = interaction.id;
+			let embedID = chatCommand.id;
 			// each button will contain this data in it's customId
 			// used to compare buttons to sessions
 			let btnData = `${challenger.user.id} ${opponent.user.id} ${matchID} ${embedID} ${game}`;
@@ -126,7 +127,7 @@ client.on('interactionCreate', async interaction => {
 					.setDisabled(false)
 			);
 
-			const challengeMessage = await interaction.reply({
+			const challengeMessage = await chatCommand.reply({
 				embeds: [challengerEmbed],
 				components: [cancelButton],
 				// content: `Sent your challenge request to ${opponent.user.username} ;)`,
@@ -168,8 +169,16 @@ client.on('interactionCreate', async interaction => {
 			
 
 
+
+
+			// create button collector in here???? READ UP ON DOCUMENTATION FOR THAT. COULD SOLVE THE ISSUE OF DELETING THE EMBEDS
+
+
+
+
+
 		} else {
-			interaction.reply({
+			chatCommand.reply({
 				content: `Match with ${opponent.user.username} was not created :(`,
 				ephemeral: true});
 		}
@@ -182,19 +191,17 @@ client.on('interactionCreate', async interaction => {
 client.on('interactionCreate', async btnPress => {
 	if (!btnPress.isButton()) return;
 	
-	console.log(btnPress.user.id);
-	console.log(btnPress.customId);
 
 	let btnType = btnPress.customId.split(" ")[0];
-	let challengerId = btnPress.customId.split(" ")[1];
-	let opponentId = btnPress.customId.split(" ")[2];
-	let btnMatchID = btnPress.customId.split(" ")[3];
-	let embedID = btnPress.customId.split(" ")[4];
+	let challengerId = parseInt(btnPress.customId.split(" ")[1]);
+	let opponentId = parseInt(btnPress.customId.split(" ")[2]);
+	let btnMatchID = parseInt(btnPress.customId.split(" ")[3]);
+	let embedID = parseInt(btnPress.customId.split(" ")[4]);
 	let game = btnPress.customId.split(" ")[5];
 
 
-	// if button is matchAccept. change to function
-	if (btnPress.customId.split(" ")[0] == 'matchAccept') {
+	// if button is matchAccept. 
+	if (btnType == 'matchAccept') {
 		console.log("accepted");
 
 		let validButton = false;
@@ -206,52 +213,29 @@ client.on('interactionCreate', async btnPress => {
 				activeMatches[0]['accepted'] = true;
 				activeMatches[0]['active'] = true;
 				
-				// console.log(btnPress.component)
-
-				console.log(activeMatches[0]['accepted']);
-
 				break;
 			}
 		}
 
 		if (validButton == true) {
 			console.log("button was indeed validitionined")
-			// create match ID. 
-			// push to matchHistory in DB with result null
 
-			
-			// active matches category 1023643386902741083
+			// active matches discord category 1023643386902741083
 			console.log(activeMatches);
 
-			const pushMatchToDB = async() => {
-				
-			try {
-				await openDB();
-				console.log(`-- Pushing Match ${challengerId} vs ${opponentId} to Database --`);
+			// log the match
+			await pushMatchToDB(challengerId, opponentId, game, activeMatches);
 
-				// setup vars 
-				// db formate
-				// (match_id INTEGER, date INTEGER, player_1 INTEGER, player_2 INTEGER, result INTEGER, both_reported INTEGER, notes TEXT)
+			// create the match text channel 
+				// only the 2 players can see it
+				// has a timeout
+				// has embed for tracking wins per player
 
-
-				await sqlite.run(`INSERT INTO ${game} activematchobjecthere`)
-
-
-			} catch (error) {
-				
-			}
-
-			await closeDB()
-			}
+			// send embed to each player with match channel link
 
 
 
-
-			
 		} else {
-			
-			// await client.users.fetch(opponentId)
-
 
 			console.log("DED BUTTON")
 			
