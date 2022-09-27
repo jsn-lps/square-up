@@ -1,3 +1,3 @@
 # Square Up
-## A fighting game stat tracker bot on discord
+## A fighting game stat tracker/matchmaking bot on discord
 for discord
