@@ -2,7 +2,7 @@ require('dotenv').config();
 // const DB.openDB = require('./functions/open_db');
 
 // imports
-const { Client, GatewayIntentBits, Message, EmbedBuilder, AttachmentBuilder, messageLink,  ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType  } = require('discord.js');
+const { Client, GatewayIntentBits, Message, EmbedBuilder, AttachmentBuilder, messageLink,  ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, BaseGuildTextChannel, TextChannel, Guild, GuildChannelManager  } = require('discord.js');
 const { token } = require('./config.json');
 const sqlite = require('aa-sqlite');
 
@@ -13,13 +13,19 @@ const { addUserToDB } = require('./lib/addUserToDB');
 const { generateMatchSession } = require('./lib/generateMatchSession')
 const { pushMatchToDB } = require('./lib/pushMatchToDB')
 
+
 const { getDate } = require('./lib/getDate')
 const { openDB, closeDB } = require('./lib/DB');
 const { generateMatchID } = require('./lib/generateMatchID');
 const { checkIfInMatch } = require('./lib/checkIfInMatch');
 
 // intents
-const client = new Client({intents: [""]});
+const client = new Client({intents: [
+	GatewayIntentBits.Guilds,
+	GatewayIntentBits.GuildMessages,
+	GatewayIntentBits.DirectMessages,
+
+]});
 
 // bot login with token
 client.login(token)
@@ -66,7 +72,7 @@ client.on('interactionCreate', async chatCommand => {
 	const { commandName } = chatCommand;
 	const user = chatCommand.user.username;
 	const id = chatCommand.user.id;
-
+	
 	// if user doesn't exist in database, add it for tracking
 	if (!userIDs.includes(parseInt(chatCommand.user.id))) {
 		await addUserToDB(id, user, userIDs);
@@ -75,6 +81,10 @@ client.on('interactionCreate', async chatCommand => {
 	// slash commands
 	if (commandName === 'suh') {
 		chatCommand.reply(`Suh ${user}`);
+		
+		
+
+		
 
 	} else if (commandName === 'mommy') {
 		const file = new AttachmentBuilder('https://hips.hearstapps.com/hmg-prod.s3.amazonaws.com/images/13-penguin-call-1524251368.jpg?crop=0.667xw:1.00xh;0.166xw,0&resize=480:*');
@@ -224,7 +234,7 @@ client.on('interactionCreate', async btnPress => {
 			console.log(activeMatches);
 
 			// log the match
-			await pushMatchToDB(challengerId, opponentId, game, activeMatches);
+			await pushMatchToDB(challengerId, opponentId, game, activeMatches, btnMatchID);
 
 			// create the match text channel 
 				// only the 2 players can see it
@@ -233,7 +243,14 @@ client.on('interactionCreate', async btnPress => {
 
 			// send embed to each player with match channel link
 
-
+			await btnPress.guild.channels.create(('Text', { //Create a channel
+				type: 'text', //Make sure the channel is a text channel
+				permissionOverwrites: [{ //Set permission overwrites
+					id: btnPress.guild.id,
+					allow: ['VIEW_CHANNEL'],
+				}]
+			}))
+			
 
 		} else {
 
