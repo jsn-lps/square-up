@@ -2,7 +2,7 @@ require('dotenv').config();
 // const DB.openDB = require('./functions/open_db');
 
 // imports
-const { Client, GatewayIntentBits, Message, EmbedBuilder, AttachmentBuilder, messageLink,  ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, BaseGuildTextChannel, TextChannel, Guild, GuildChannelManager  } = require('discord.js');
+const { Client, ChannelType, GatewayIntentBits, Message, EmbedBuilder, AttachmentBuilder, messageLink,  ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, BaseGuildTextChannel, TextChannel, Guild, GuildChannelManager  } = require('discord.js');
 const { token } = require('./config.json');
 const sqlite = require('aa-sqlite');
 
@@ -82,7 +82,10 @@ client.on('interactionCreate', async chatCommand => {
 	if (commandName === 'suh') {
 		chatCommand.reply(`Suh ${user}`);
 		
-		
+
+
+
+
 
 		
 
@@ -201,6 +204,8 @@ client.on('interactionCreate', async chatCommand => {
 client.on('interactionCreate', async btnPress => {
 	if (!btnPress.isButton()) return;
 	
+	console.log(btnPress)
+
 
 	let btnType = btnPress.customId.split(" ")[0];
 	let challengerId = parseInt(btnPress.customId.split(" ")[1]);
@@ -243,13 +248,25 @@ client.on('interactionCreate', async btnPress => {
 
 			// send embed to each player with match channel link
 
-			await btnPress.guild.channels.create(('Text', { //Create a channel
-				type: 'text', //Make sure the channel is a text channel
-				permissionOverwrites: [{ //Set permission overwrites
-					id: btnPress.guild.id,
-					allow: ['VIEW_CHANNEL'],
-				}]
-			}))
+			// this doesn't work since the button is used in DMs.
+
+			//create an object that populates with server info on startup
+			// use trhat object to target discord server and create channel since that information isnt carried in the button for some reason
+			// or pass guild ID data just like IDs
+			await btnPress.guild.channels.create({
+				name: 'new-general',
+				reason: 'Needed a cool new channel',
+				type: ChannelType.GuildText,
+				permissionOverwrites: [{
+				   id: btnPress.user.id,
+				   allow: ["1024", "2048"]
+				},
+				{
+				   id: btnPress.user.id,
+				   allow: ["1024", "2048"]
+				}]})
+
+
 			
 
 		} else {
