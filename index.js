@@ -184,7 +184,7 @@ client.on('interactionCreate', async chatCommand => {
 
 
 
-			// create button collector in here???? READ UP ON DOCUMENTATION FOR THAT. COULD SOLVE THE ISSUE OF DELETING THE EMBEDS
+			// create button collector in here for sure. READ UP ON DOCUMENTATION FOR THAT. COULD SOLVE THE ISSUE OF DELETING THE EMBEDS
 
 
 
